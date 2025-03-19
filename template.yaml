@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  incident-triage-lambda
+Transform:
+- AWS::Serverless-2016-10-31
+
+Resources:
+  ## API Gateway
+  ApiGatewayRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: "MySecureAPI"
+      StageName: "Prod"
+      ApiKeySourceType: HEADER
+      Auth:
+        ApiKeyRequired: true
+
+  ApiGatewayRestApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+    DependsOn:
+      - getAllItemsFunction
+      - getByIdFunction
+      - putItemFunction
+
+  ## Lambda Functions
+  getAllItemsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/get-all-items.getAllItemsHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description: A simple HTTP GET method to get all items from the DynamoDB table.
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: SampleTable  
+      Environment:
+        Variables:
+          SAMPLE_TABLE: SampleTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /items
+            Method: GET
+            RestApiId: !Ref ApiGatewayRestApi
+            Auth:
+              ApiKeyRequired: true
+
+  getByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/get-by-id.getByIdHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description: A simple HTTP GET method to retrieve an item by ID from the DynamoDB table.
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: SampleTable  
+      Environment:
+        Variables:
+          SAMPLE_TABLE: SampleTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /items/{id}
+            Method: GET
+            RestApiId: !Ref ApiGatewayRestApi
+  putItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/handlers/put-item.putItemHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description: A simple HTTP POST method to add an item to the DynamoDB table.
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: SampleTable  # Reference the existing table
+        - Statement:
+            Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+            Resource: "*"
+      Environment:
+        Variables:
+          SAMPLE_TABLE: SampleTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /
+            Method: POST
+            RestApiId: !Ref ApiGatewayRestApi
+
+
+  ## API Key for Secure Access
+  MyApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: "MyAPIKey"
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref ApiGatewayRestApi
+          StageName: "Prod"
+    DependsOn:
+      - ApiGatewayRestApiDeployment  # Ensures API key is created only after API is deployed
+
+## Outputs - Corrected Reference to `ApiGatewayRestApi`
+Outputs:
+  WebEndpoint:
+    Description: API Gateway endpoint URL for Prod stage
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
+Globals:
+  Function:
+    LoggingConfig:
+      LogFormat: JSON
+
+
+
+
