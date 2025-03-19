@@ -30,7 +30,7 @@ async function classifyIncident(description) {
         Respond with only one word: CRITICAL, HIGH, MEDIUM, or LOW.
         `;
 
-        const response = await bedrockClient.send(
+        const response = await bedrockClient.send(  // the following code comes straight from AWS 
             new InvokeModelCommand({
                 modelId: "anthropic.claude-v2:1",  // Use Claude v2 model
                 contentType: "application/json",
